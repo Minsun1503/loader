@@ -1,6 +1,8 @@
 js2me.createClass({
 	construct: function (ws) {
 		this.ws = ws;
+		this._msgCount = 0;
+		this._byteCount = 0;
 		if (ws.readIndex == null) {
 			ws.readIndex = 0;
 		}
@@ -9,26 +11,33 @@ js2me.createClass({
 		this.closed = false;
 		this.waitingThreadId = null;
 		this.waitingBytes = 0;
-		
+
 		var self = this;
-		this.ws.addEventListener('message', function(event) {
+		this.ws.addEventListener('message', function (event) {
+			var data = new Uint8Array(event.data);
+			self._msgCount++;
+			self._byteCount += data.length;
+			console.log('[SOCKET_IN_DATA] msg #' + self._msgCount + ' received ' + data.length + ' bytes (total=' + self._byteCount + ', bufSize=' + (self.buffer.length - self.ws.readIndex) + ')');
 			if (self.waitingThreadId != null && (self.buffer.length - self.ws.readIndex) >= self.waitingBytes) {
 				var threadId = self.waitingThreadId;
 				self.waitingThreadId = null;
+				console.log('[SOCKET_IN_DATA] msg #' + self._msgCount + ' triggers RESUME thread ' + threadId);
 				js2me.restoreThread(threadId);
 			}
 		});
-		this.ws.addEventListener('close', function() {
+		this.ws.addEventListener('close', function () {
+			console.log('[SOCKET_IN_DATA] WS close event fired, closed=' + self.closed + ', waitThread=' + self.waitingThreadId + ', buf=' + (self.buffer.length - self.ws.readIndex) + '/' + self.waitingBytes);
 			self.closed = true;
 			if (self.waitingThreadId != null) {
 				var threadId = self.waitingThreadId;
 				self.waitingThreadId = null;
+				console.log('[SOCKET_IN_DATA] WS close RESUMES thread ' + threadId);
 				js2me.restoreThread(threadId);
 			}
 		});
 	},
-	
-	_readByte: function() {
+
+	_readByte: function () {
 		if (this.ws.readIndex >= this.buffer.length) {
 			return null;
 		}
@@ -39,25 +48,36 @@ js2me.createClass({
 		}
 		return val;
 	},
-	
-	_suspendUntil: function(bytesNeeded, callback) {
-		if ((this.buffer.length - this.ws.readIndex) >= bytesNeeded) {
+
+	_suspendUntil: function (bytesNeeded, callback) {
+		var avail = this.buffer.length - this.ws.readIndex;
+		if (avail >= bytesNeeded) {
 			return callback();
 		}
 		if (this.closed) {
+			console.log('[SOCKET_IN_DATA] throw EOF (closed=true, need=' + bytesNeeded + ', avail=' + avail + ')');
 			throw new javaRoot.$java.$io.$EOFException('Socket closed');
 		}
-		
+
+		// Flush pending output data before blocking on read
+		if (this.ws._flushOutput) {
+			this.ws._flushOutput();
+		}
+
+		console.log('[SOCKET_IN_DATA] BLOCK: need=' + bytesNeeded + ' bytes, avail=' + avail + ', thread=' + js2me.currentThread);
 		js2me.suspendThread = true;
 		var threadId = js2me.currentThread;
 		this.waitingThreadId = threadId;
 		this.waitingBytes = bytesNeeded;
-		
+
 		var self = this;
 		js2me.restoreStack[threadId] = [function () {
-			if ((self.buffer.length - self.ws.readIndex) >= bytesNeeded) {
+			var availNow = self.buffer.length - self.ws.readIndex;
+			console.log('[SOCKET_IN_DATA] RESUME: need=' + bytesNeeded + ', avail=' + availNow + ', closed=' + self.closed);
+			if (availNow >= bytesNeeded) {
 				return callback();
 			} else if (self.closed) {
+				console.log('[SOCKET_IN_DATA] RESUME throws EOF (avail=' + availNow + ' < need=' + bytesNeeded + ')');
 				throw new javaRoot.$java.$io.$EOFException('Socket closed');
 			}
 			throw new javaRoot.$java.$io.$IOException('Unknown error in socket suspend');
@@ -69,11 +89,11 @@ js2me.createClass({
 			return this._readByte();
 		});
 	},
-	
+
 	$read$_B$I: function (buffer) {
 		return this.$read$_BII$I(buffer, 0, buffer.length);
 	},
-	
+
 	$read$_BII$I: function (buffer, offset, length) {
 		return this._suspendUntil(1, () => {
 			var available = this.buffer.length - this.ws.readIndex;
@@ -92,7 +112,7 @@ js2me.createClass({
 			return (value >= 128) ? value - 256 : value;
 		});
 	},
-	
+
 	$readUnsignedByte$$I: function () {
 		return this._suspendUntil(1, () => {
 			return this._readByte();
@@ -108,7 +128,7 @@ js2me.createClass({
 			return value;
 		});
 	},
-	
+
 	$readUnsignedShort$$I: function () {
 		return this._suspendUntil(2, () => {
 			var a = this._readByte();
@@ -127,7 +147,7 @@ js2me.createClass({
 			return value;
 		});
 	},
-	
+
 	$readLong$$J: function () {
 		return this._suspendUntil(8, () => {
 			var hi = 0;
@@ -136,18 +156,18 @@ js2me.createClass({
 			}
 			if (hi >= 0x80000000) hi -= 0x100000000;
 			if (hi < 0) hi += 0x100000000;
-			
+
 			var lo = 0;
 			for (var i = 0; i < 4; i++) {
 				lo = (lo << 8) + this._readByte();
 			}
 			if (lo >= 0x80000000) lo -= 0x100000000;
 			if (lo < 0) lo += 0x100000000;
-			
-			return {hi: hi, lo: lo};
+
+			return { hi: hi, lo: lo };
 		});
 	},
-	
+
 	$readFloat$$F: function () {
 		return this._suspendUntil(4, () => {
 			var value = 0;
@@ -158,7 +178,7 @@ js2me.createClass({
 			return js2me.dataToFloat(value);
 		});
 	},
-	
+
 	$readDouble$$D: function () {
 		return this._suspendUntil(8, () => {
 			var hi = 0;
@@ -166,27 +186,27 @@ js2me.createClass({
 				hi = (hi << 8) + this._readByte();
 			}
 			if (hi < 0) hi += 0x100000000;
-			
+
 			var lo = 0;
 			for (var i = 0; i < 4; i++) {
 				lo = (lo << 8) + this._readByte();
 			}
 			if (lo < 0) lo += 0x100000000;
-			
+
 			return js2me.dataToDouble(hi, lo);
 		});
 	},
-	
+
 	$readBoolean$$Z: function () {
 		return this._suspendUntil(1, () => {
 			return this._readByte() > 0 ? 1 : 0;
 		});
 	},
-	
+
 	$readFully$_B$V: function (buffer) {
 		this.$readFully$_BII$V(buffer, 0, buffer.length);
 	},
-	
+
 	$readFully$_BII$V: function (buffer, offset, length) {
 		return this._suspendUntil(length, () => {
 			for (var i = 0; i < length; i++) {
@@ -201,7 +221,7 @@ js2me.createClass({
 			var a = this.buffer[this.ws.readIndex];
 			var b = this.buffer[this.ws.readIndex + 1];
 			var length = (a << 8) + b;
-			
+
 			return this._suspendUntil(length + 2, () => {
 				this._readByte(); // consume a
 				this._readByte(); // consume b
@@ -224,20 +244,20 @@ js2me.createClass({
 		this.closed = true;
 		this.ws.close();
 	},
-	
+
 	$skip$J$J: function (n) {
 		var bytesToSkip = n.lo;
 		if (n.hi >= 0x80000000 || bytesToSkip <= 0) {
-			return {hi: 0, lo: 0};
+			return { hi: 0, lo: 0 };
 		}
 		return this._suspendUntil(bytesToSkip, () => {
 			for (var i = 0; i < bytesToSkip; i++) {
 				this._readByte();
 			}
-			return {hi: 0, lo: bytesToSkip};
+			return { hi: 0, lo: bytesToSkip };
 		});
 	},
-	
+
 	$skipBytes$I$I: function (n) {
 		if (n <= 0) {
 			return 0;
@@ -249,7 +269,7 @@ js2me.createClass({
 			return n;
 		});
 	},
-	
+
 	superClass: 'javaRoot.$java.$io.$InputStream',
 	interfaces: ['javaRoot.$java.$io.$DataInput']
 });

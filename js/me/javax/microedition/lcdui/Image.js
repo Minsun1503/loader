@@ -3,6 +3,7 @@ js2me.createClass({
 	 * public static Image createImage(InputStream stream)
 	 */
 	$createImage$Ljava_io_InputStream_$Ljavax_microedition_lcdui_Image_: js2me.markUnsafe(function (stream) {
+		console.error("WARNING: createImage(InputStream) is called! This might consume the whole stream incorrectly!");
 		if (stream == null) {
 			throw new javaRoot.$java.$lang.$NullPointerException();
 		}
@@ -36,9 +37,15 @@ js2me.createClass({
 		}
 		var input = javaRoot.$java.$lang.$Class.prototype.$getResourceAsStream$Ljava_lang_String_$Ljava_io_InputStream_(name);
 		if (input == null) {
-			throw new javaRoot.$java.$io.$IOException();
+			console.warn('Resource not found: ' + name + ' — returning 1x1 placeholder');
+			return javaRoot.$javax.$microedition.$lcdui.$Image.prototype.$createImage$II$Ljavax_microedition_lcdui_Image_(1, 1);
 		}
-		var data = new Int8Array(input.stream.array);
+		var bytes = input.stream.array || input.stream;
+		if (!bytes || bytes.length === 0) {
+			console.warn('Resource ' + name + ' has empty data — returning 1x1 placeholder');
+			return javaRoot.$javax.$microedition.$lcdui.$Image.prototype.$createImage$II$Ljavax_microedition_lcdui_Image_(1, 1);
+		}
+		var data = new Int8Array(bytes);
 		return javaRoot.$javax.$microedition.$lcdui.$Image.prototype.$createImage$_BII$Ljavax_microedition_lcdui_Image_(data, 0, data.length);
 	}),
 	/*
@@ -57,7 +64,7 @@ js2me.createClass({
 	/*
 	 * public static Image createImage(int width, int height)
 	 */
-	$createImage$Ljavax_microedition_lcdui_Image_IIIII$Ljavax_microedition_lcdui_Image_ : function (source, x, y, width, height, transform) {
+	$createImage$Ljavax_microedition_lcdui_Image_IIIII$Ljavax_microedition_lcdui_Image_: function (source, x, y, width, height, transform) {
 		var image = javaRoot.$javax.$microedition.$lcdui.$Image.prototype.$createImage$II$Ljavax_microedition_lcdui_Image_(width, height);
 		var graphics = image.$getGraphics$$Ljavax_microedition_lcdui_Graphics_();
 		graphics.$drawRegion$Ljavax_microedition_lcdui_Image_IIIIIIII$V(source, x, y, width, height, transform, 0, 0, 0);
@@ -74,7 +81,7 @@ js2me.createClass({
 		if (length < 0 || offset >= data.length || offset + length > data.length) {
 			throw new javaRoot.$java.$lang.$ArrayIndexOutOfBoundsException();
 		}
-		
+
 		var xorHeader = [-118, 83, 77, 68, 14, 9, 25, 9];
 		var isXoredBy3 = true;
 		if (length >= 8) {
@@ -87,7 +94,7 @@ js2me.createClass({
 		} else {
 			isXoredBy3 = false;
 		}
-		
+
 		if (isXoredBy3) {
 			console.log("Detected unnecessarily XORed PNG. Restoring original bytes...");
 			for (var i = 0; i < length; i++) {
@@ -136,7 +143,8 @@ js2me.createClass({
 		var threadId = js2me.currentThread;
 		js2me.restoreStack[threadId] = [function () {
 			if (isError) {
-				throw new javaRoot.$java.$io.$IOException('Cannot load image');
+				console.warn('Cannot load image, throwing IOException');
+				throw new javaRoot.$java.$io.$IOException('Cannot decode image data');
 			}
 			return image;
 		}];
@@ -179,19 +187,22 @@ js2me.createClass({
 	 * public Graphics getGraphics()
 	 */
 	$getGraphics$$Ljavax_microedition_lcdui_Graphics_: function () {
+		if (!this.element) {
+			return new javaRoot.$javax.$microedition.$lcdui.$Graphics(document.createElement('canvas')); // return dummy graphics
+		}
 		return new javaRoot.$javax.$microedition.$lcdui.$Graphics(this.element);
 	},
 	/*
 	 * public int getWidth()
 	 */
 	$getWidth$$I: function () {
-		return this.element.width;
+		return this.element ? this.element.width : 0;
 	},
 	/*
 	 * public int getHeight()
 	 */
 	$getHeight$$I: function () {
-		return this.element.height;
+		return this.element ? this.element.height : 0;
 	},
 	/*
 	 * public boolean isMutable()
@@ -207,6 +218,7 @@ js2me.createClass({
 	 * public void getRGB(int[] rgbData, int offset, int scanlength, int x, int y, int width, int height)
 	 */
 	$getRGB$_IIIIIII$V: function (rgbData, offset, scanlength, x, y, width, height) {
+		if (!this.element) return;
 		var context = this.element.getContext('2d');
 		var imageData = context.getImageData(x, y, width, height);
 		var data = imageData.data;

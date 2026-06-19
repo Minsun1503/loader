@@ -22,16 +22,23 @@ js2me.createClass({
 		}
 		return this.array[key.$hashCode$$I()];
 	},
-	/*
-	 * public Object put(Object key, Object value)
-	 */
 	$put$Ljava_lang_Object_Ljava_lang_Object_$Ljava_lang_Object_: function (key, obj) {
 		if (key == null) {
 			throw new javaRoot.$java.$lang.$NullPointerException();
 		}
 		var value = this.array[key.$hashCode$$I()];
 		this.array[key.$hashCode$$I()] = obj;
-		this.keys.push(key);
+		var exists = false;
+		for (var i = 0; i < this.keys.length; i++) {
+			var k = this.keys[i];
+			if (k === key || (k.$equals$Ljava_lang_Object_$Z && k.$equals$Ljava_lang_Object_$Z(key))) {
+				exists = true;
+				break;
+			}
+		}
+		if (!exists) {
+			this.keys.push(key);
+		}
 		return value;
 	},
 	/*
@@ -79,15 +86,22 @@ js2me.createClass({
 		var enumeration = new javaRoot.$java.$util.$ArrayEnumeration(this.keys);
 		return enumeration;
 	},
-	/*
-	 * public Object remove(Object key)
-	 */
 	$remove$Ljava_lang_Object_$Ljava_lang_Object_: function (key) {
 		if (key == null) {
 			throw new javaRoot.$java.$lang.$NullPointerException();
 		}
 		delete this.array[key.$hashCode$$I()];
-		this.keys.splice(this.keys.indexOf(key), 1);
+		var index = -1;
+		for (var i = 0; i < this.keys.length; i++) {
+			var k = this.keys[i];
+			if (k === key || (k.$equals$Ljava_lang_Object_$Z && k.$equals$Ljava_lang_Object_$Z(key))) {
+				index = i;
+				break;
+			}
+		}
+		if (index !== -1) {
+			this.keys.splice(index, 1);
+		}
 	}
 });
 

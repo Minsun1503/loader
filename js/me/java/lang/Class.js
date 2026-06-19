@@ -31,9 +31,17 @@ js2me.createClass({
 				resource = js2me.resources[resourceName.substring(0, resourceName.length - 4) + '.img'];
 			}
 		}
+		if (resource == null && js2me.filenameMap) {
+			var mapped = js2me.filenameMap[resourceName];
+			if (mapped) {
+				resource = js2me.resources[mapped];
+			}
+		}
 		if (resource == null) {
-			console.warn('Resource NOT found: ' + resourceName);
-			return null;
+			console.warn('Resource NOT found: ' + resourceName + ' — returning empty stream');
+			var emptyArray = new Uint8Array(0);
+			var stream = new js2me.BufferStream(emptyArray);
+			return new javaRoot.$java.$io.$BufferStream(stream);
 		}
 		var stream = new js2me.BufferStream(resource);
 		return new javaRoot.$java.$io.$BufferStream(stream);

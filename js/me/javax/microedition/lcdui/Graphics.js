@@ -2,6 +2,7 @@ js2me.createClass({
 	construct: function (canvas) {
 		this.element = canvas;
 		this.context = canvas.getContext('2d');
+		if (!this.context) return;
 		this.context.textBaseline = 'top';
 		this.$setColor$III$V(0, 0, 0);
 		this.$setClip$IIII$V(0, 0, this.element.width, this.element.height);
@@ -40,13 +41,14 @@ js2me.createClass({
 		this.$setColor$III$V(red, green, blue);
 	},
 	$setGrayScale$I$V: function (color) {
-			this.$setColor$III$V(color, color, color);
+		this.$setColor$III$V(color, color, color);
 	},
 	/*
 	 * public void fillRect(int x, int y, int width, int height)
 	 */
 	$fillRect$IIII$V: function (x, y, width, height) {
 		this.loadContext();
+		if (!this.context) return;
 		if (width == 0) {
 			width = 1;
 		}
@@ -61,6 +63,7 @@ js2me.createClass({
 	 */
 	$fillTriangle$IIIIII$V: function (x1, y1, x2, y2, x3, y3) {
 		this.loadContext();
+		if (!this.context) return;
 		this.context.beginPath();
 		this.context.moveTo(x1, y1);
 		this.context.lineTo(x2, y2);
@@ -75,6 +78,7 @@ js2me.createClass({
 	 */
 	$drawRect$IIII$V: function (x, y, width, height) {
 		this.loadContext();
+		if (!this.context) return;
 		if (width == 0) {
 			width = 1;
 		}
@@ -88,30 +92,32 @@ js2me.createClass({
 	 * public void drawRGB(int[] rgbData, int offset, int scanlength, int x, int y, int width, int height, boolean processAlpha)
 	 */
 	$drawRGB$_IIIIIIIZ$V: function (data, offset, length, x, y, width, height, processAlpha) {
-			//TODO: maybe little faster...
-			var oldColor = this.$getColor$$I();
-			for (var i = 0; i < height; i++) {
-				for (var j = 0; j < width; j++) {
-					var pixel = data[offset + i * length + j];
-					var red = (pixel & 0xff0000) >> 16;
-					var green = (pixel & 0x00ff00) >> 8;
-					var blue = (pixel & 0x0000ff);
-					var alpha = 1;
-					if (processAlpha) {
-							alpha = pixel / 0x100000000;
-					}
-					var color = 'rgba(' + red + ', ' + green + ', ' + blue + ', ' + alpha + ')';
-					this.context.fillStyle = color;
-					this.context.fillRect(x + j, y + i, 1, 1);
+		if (!this.context) return;
+		//TODO: maybe little faster...
+		var oldColor = this.$getColor$$I();
+		for (var i = 0; i < height; i++) {
+			for (var j = 0; j < width; j++) {
+				var pixel = data[offset + i * length + j];
+				var red = (pixel & 0xff0000) >> 16;
+				var green = (pixel & 0x00ff00) >> 8;
+				var blue = (pixel & 0x0000ff);
+				var alpha = 1;
+				if (processAlpha) {
+					alpha = pixel / 0x100000000;
 				}
+				var color = 'rgba(' + red + ', ' + green + ', ' + blue + ', ' + alpha + ')';
+				this.context.fillStyle = color;
+				this.context.fillRect(x + j, y + i, 1, 1);
 			}
-			this.$setColor$I$V(oldColor);
+		}
+		this.$setColor$I$V(oldColor);
 	},
 	/*
 	 * public void drawRoundRect(int x, int y, int width, int height, int arcWidth, int arcHeight)
 	 */
 	$drawRoundRect$IIIIII$V: function (x, y, width, height, arcWidth, arcHeight) {
 		this.loadContext();
+		if (!this.context) return;
 		this.drawRoundRectPath(x, y, width, height, arcWidth, arcHeight);
 		this.context.stroke();
 		this.context.closePath();
@@ -122,6 +128,7 @@ js2me.createClass({
 	 */
 	$fillRoundRect$IIIIII$V: function (x, y, width, height, arcWidth, arcHeight) {
 		this.loadContext();
+		if (!this.context) return;
 		this.drawRoundRectPath(x, y, width, height, arcWidth, arcHeight);
 		this.context.fill();
 		this.context.closePath();
@@ -132,6 +139,7 @@ js2me.createClass({
 	 */
 	$drawLine$IIII$V: function (x1, y1, x2, y2) {
 		this.loadContext();
+		if (!this.context) return;
 		this.context.beginPath();
 		if (x1 > x2) {
 			x1++;
@@ -174,6 +182,7 @@ js2me.createClass({
 	 */
 	$drawArc$IIIIII$V: function (x, y, width, height, startAngle, arcAngle) {
 		this.loadContext();
+		if (!this.context) return;
 		this.drawArcPath(x, y, width, height, startAngle, arcAngle);
 		this.context.stroke();
 		this.context.closePath();
@@ -184,6 +193,7 @@ js2me.createClass({
 	 */
 	$fillArc$IIIIII$V: function (x, y, width, height, startAngle, arcAngle) {
 		this.loadContext();
+		if (!this.context) return;
 		this.drawArcPath(x, y, width, height, startAngle, arcAngle);
 		this.context.fill();
 		this.context.closePath();
@@ -200,6 +210,7 @@ js2me.createClass({
 	 */
 	$drawString$Ljava_lang_String_III$V: function (str, x, y, anchor) {
 		this.loadContext();
+		if (!this.context) return;
 		if (anchor == 0) {
 			anchor = this.$TOPI | this.$LEFTI;
 		}
@@ -228,11 +239,26 @@ js2me.createClass({
 	 * public void drawImage(Image img, int x, int y, int anchor)
 	 */
 	$drawImage$Ljavax_microedition_lcdui_Image_III$V: function (img, x, y, anchor) {
-		if (img == null || img.element == null) {
-			console.warn('drawImage failed: image or image element is null');
+		if (!img || !img.element || !img.element.getContext) {
+			js2me._logCache = js2me._logCache || {};
+			if (!js2me._logCache['drawImage']) {
+				js2me._logCache['drawImage'] = true;
+				console.warn('drawImage failed: image or image element is null');
+			}
+			this._skipLayout = true;
 			return;
 		}
+		if (!img.element.width || !img.element.height) {
+			this._skipLayout = true;
+			return;
+		}
+		this._skipLayout = false;
+
 		this.loadContext();
+		if (!this.context) return;
+		if (!this.context) return;
+		
+		if (this._skipLayout) return;
 		if (anchor == 0) {
 			anchor = this.$TOPI | this.$LEFTI;
 		}
@@ -268,6 +294,7 @@ js2me.createClass({
 	 * public void setClip(int x, int y, int width, int height)
 	 */
 	$setClip$IIII$V: function (x, y, width, height) {
+		if (!this.context) return;
 		if (width < 0) {
 			width = 0;
 		}
@@ -328,10 +355,16 @@ js2me.createClass({
 	 * public void drawRegion(Image src, int x_src, int y_src, int width, int height, int transform, int x_dest, int y_dest, int anchor)
 	 */
 	$drawRegion$Ljavax_microedition_lcdui_Image_IIIIIIII$V: function (src, sx, sy, width, height, transform, dx, dy, anchor) {
-		if (src == null || src.element == null) {
-			console.warn('drawRegion failed: source image or element is null');
+		if (!src || !src.element || !src.element.getContext) {
+			js2me._logCache = js2me._logCache || {};
+			if (!js2me._logCache['drawRegion']) {
+				js2me._logCache['drawRegion'] = true;
+				console.warn('drawRegion failed: source image or element is null');
+			}
 			return;
 		}
+		if (width === 0 || height === 0) return;
+		if (!src.element.width || !src.element.height) return;
 		if (sx + width > src.element.width) {
 			width = src.element.width - sx;
 		}
@@ -342,6 +375,8 @@ js2me.createClass({
 			return;
 		}
 		this.loadContext();
+		if (!this.context) return;
+		if (!this.context) return;
 		var dw = width;
 		var dh = height;
 		if (transform >= 4) {
@@ -410,6 +445,7 @@ js2me.createClass({
 	},
 	// FML, it only exists because of stupid canvas clip
 	loadContext: function () {
+		if (!this.context) return;
 		this.context.save();
 		if (this.style == this.$DOTTEDI) {
 			this.context.mozDash = [2];
@@ -424,19 +460,19 @@ js2me.createClass({
 		this.context.translate(this.translateX, this.translateY);
 	},
 	drawArcPath: function (x, y, width, height, startAngle, arcAngle) {
-        this.context.beginPath();
-        this.context.translate(x - width / 2, y - height / 2);
-        if (width != 0 && height != 0) {
+		this.context.beginPath();
+		this.context.translate(x - width / 2, y - height / 2);
+		if (width != 0 && height != 0) {
 			this.context.scale(width, height);
 		}
-        this.context.arc(1, 1, 1, (startAngle / 180) * Math.PI, ((startAngle + arcAngle) / 180) * Math.PI, true);
+		this.context.arc(1, 1, 1, (startAngle / 180) * Math.PI, ((startAngle + arcAngle) / 180) * Math.PI, true);
 	},
 	drawRoundRectPath: function (x, y, width, height, arcWidth, arcHeight) {
 		this.context.beginPath();
 		this.context.moveTo(x + arcWidth, y);
 		this.context.lineTo(x + width - arcWidth, y);
 		this.context.quadraticCurveTo(x + width, y, x + width, y + arcHeight);
-		this.context.lineTo(x +  width, y + height - arcHeight);
+		this.context.lineTo(x + width, y + height - arcHeight);
 		this.context.quadraticCurveTo(x + width, y + height, x + width - arcWidth, y + height);
 		this.context.lineTo(x + arcWidth, y + height);
 		this.context.quadraticCurveTo(x, y + height, x, y + height - arcHeight);

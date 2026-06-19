@@ -103,3 +103,4 @@ js2me.createClass({
 		return false;
 	}
 });
+

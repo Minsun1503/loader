@@ -12,23 +12,19 @@ js2me.createClass({
 		javaRoot.$java.$lang.$System.prototype.$out = new javaRoot.$java.$io.$PrintStream({
 			buffer: '',
 			$write$_B$V: function (b) {
-				if (!js2me.config.app) {
-					for (var i in b) {
-						this.$write$I$V(b[i]);
-					}
+				for (var i in b) {
+					this.$write$I$V(b[i]);
 				}
 			},
 			$write$I$V: function (b) {
-				if (!js2me.config.app) {
-					if (b == 10) {
-						console.log(this.buffer);
-						this.buffer = '';
+				if (b == 10) {
+					console.log(this.buffer);
+					this.buffer = '';
+				} else {
+					if (typeof b == 'number') {
+						this.buffer += String.fromCharCode(b);
 					} else {
-						if (typeof b == 'number') {
-							this.buffer += String.fromCharCode(b);
-						} else {
-							this.buffer += b;
-						}
+						this.buffer += b;
 					}
 				}
 			}

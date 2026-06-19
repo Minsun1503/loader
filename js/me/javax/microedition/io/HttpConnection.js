@@ -50,7 +50,8 @@ js2me.createClass({
 		
 		js2me.restoreStack[threadId] = [function () {
 			if (self.error) {
-				throw new javaRoot.$java.$io.$IOException();
+				console.warn("network fail but ignored");
+				return null;
 			}
 			return; // just continue
 		}];

@@ -17,21 +17,47 @@ wss.on('connection', function connection(ws, req) {
   console.log(`[Proxy] Nhận yêu cầu kết nối tới ${targetHost}:${targetPort}`);
   const tcpClient = new net.Socket();
   
+  tcpClient.setKeepAlive(true, 5000);
+  tcpClient.setTimeout(60000); // 60 giây timeout
+  
+  tcpClient.on('timeout', function() {
+    console.warn(`[Proxy] TCP timeout tới ${targetHost}:${targetPort} - giữ kết nối`);
+    // Không đóng - để game tự xử lý
+  });
+  
   tcpClient.connect(targetPort, targetHost, function() {
     console.log(`[Proxy] Đã kết nối thành công tới ${targetHost}:${targetPort}`);
   });
 
   tcpClient.on('data', function(data) {
-    ws.send(data);
+    if (ws.readyState === 1) ws.send(data);
   });
+
+  // Buffer writes de tranh gui tung byte mot qua TCP
+  var writeQueue = [];
+  var flushTimer = null;
+  function flushWrites() {
+    flushTimer = null;
+    if (writeQueue.length === 0) return;
+    var total = writeQueue.reduce((a, b) => a + b.length, 0);
+    var combined = Buffer.concat(writeQueue, total);
+    writeQueue = [];
+    if (tcpClient.writable) {
+      tcpClient.write(combined);
+    }
+  }
 
   ws.on('message', function incoming(message) {
-    tcpClient.write(message);
+    var buf = Buffer.isBuffer(message) ? message : Buffer.from(message);
+    writeQueue.push(buf);
+    if (!flushTimer) {
+      flushTimer = setImmediate(flushWrites);
+    }
   });
 
-  tcpClient.on('close', function() {
-    console.log(`[Proxy] Mất kết nối TCP từ ${targetHost}:${targetPort}`);
-    ws.close();
+  tcpClient.on('close', function(hadError) {
+    console.log(`[Proxy] TCP đóng từ ${targetHost}:${targetPort} (hadError=${hadError})`);
+    if (ws.readyState === 1) ws.close();
   });
 
   ws.on('close', function() {

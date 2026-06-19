@@ -184,9 +184,17 @@ js2me.createClass({
 			}
 		}
 		var graphics = new javaRoot.$javax.$microedition.$lcdui.$Graphics(this.element);
+		if (!graphics || !graphics.context) {
+			console.warn("Canvas: Graphics context is null, skipping repaint");
+			return;
+		}
 		var canvas = this;
 		js2me.launchThread(function () {
-			canvas.$paint$Ljavax_microedition_lcdui_Graphics_$V(graphics);
+			try {
+				canvas.$paint$Ljavax_microedition_lcdui_Graphics_$V(graphics);
+			} catch (e) {
+				console.error("Game rendering crashed in paint:", e);
+			}
 		});
 	},
 	/*

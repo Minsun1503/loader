@@ -21,7 +21,7 @@ js2me.createClass({
 	 * public int available()
 	 */
 	$available$$I: function () {
-		return this.$buf_B.length - this.$posI;
+		return this.$countI - this.$posI;
 	},
 	/*
 	 * public boolean markSupported()
@@ -59,12 +59,12 @@ js2me.createClass({
 	 * public long skip(long n)
 	 */
 	$skip$J$J: function (skip) {
-		if (this.$posI + skip.lo < this.$buf_B.length) {
+		if (this.$posI + skip.lo < this.$countI) {
 			var result = skip.lo;
 			this.$posI += skip.lo;
 		} else {
-			var result = this.$buf_B.length - this.$posI;
-			this.$posI = this.$buf_B.length;
+			var result = this.$countI - this.$posI;
+			this.$posI = this.$countI;
 		}
 		return {hi: 0, lo: result};
 	},

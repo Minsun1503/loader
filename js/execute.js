@@ -69,6 +69,8 @@ js2me.execute = function (program, locals, constantPool, exceptions, restoreInfo
 			context.stack.push(exception);
 			context.position = program.mapping[handler];
 		} else {
+			var offset = program.reversedMapping ? program.reversedMapping[context.position - 1] : (context.position - 1);
+			console.error("Uncaught Java Exception: " + (exception.className || "Error") + " in J2ME method: " + program.methodName + " J2ME Offset: " + offset);
 			throw exception;
 		}
 	}

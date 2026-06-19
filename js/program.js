@@ -33,6 +33,7 @@ js2me.generateProgram = function (data) {
 			var index = context.stack.pop();
 			var array = context.stack.pop();
 			if (array == null) {
+				console.warn("J2ME NullPointerException in array load! Method: " + methodName + " index: " + index + " stack: " + new Error().stack);
 				throw new javaRoot.$java.$lang.$NullPointerException();
 			}
 			if (index < 0 || index >= array.length) {
@@ -47,6 +48,7 @@ js2me.generateProgram = function (data) {
 			var index = context.stack.pop();
 			var array = context.stack.pop();
 			if (array == null) {
+				console.error("aastore NullPointerException in method:", methodName, "value:", value, "index:", index, "stack:", context.stack);
 				throw new javaRoot.$java.$lang.$NullPointerException();
 			}
 			if (index < 0 || index >= array.length) {
@@ -607,7 +609,8 @@ js2me.generateProgram = function (data) {
 		return function (context) {
 			var obj = js2me.findClass(field.className);
 			js2me.initializeClass(obj, function () {
-				context.stack.push(obj.prototype['$' + fieldId]);
+				var val = obj.prototype['$' + fieldId];
+				context.stack.push(val);
 			});
 		};
 	};
@@ -896,7 +899,12 @@ js2me.generateProgram = function (data) {
 				if (!isStatic) {
 					var obj = context.stack.pop();
 					if (obj == null) {
-						throw new javaRoot.$java.$lang.$NullPointerException();
+						console.error("NullPointerException prevented in method invocation! Method: " + methodInfo.className + "." + methodInfo.name);
+						context.saveResult = (methodInfo.type.returnType != 'V');
+						if (context.saveResult) {
+							context.stack.push(null);
+						}
+						return;
 					}
 					if (obj.constructor == Array) {
 						obj = new javaRoot.$java.$lang.$ArrayObject(obj);
@@ -917,6 +925,9 @@ js2me.generateProgram = function (data) {
 						throw new Error(errMsg);
 					}
 					result = obj[methodName].apply(obj, args);
+					if (context.saveResult && !js2me.suspendThread) {
+						context.stack.push(result);
+					}
 				} else {
 					var classObj = js2me.findClass(methodInfo.className);
 					var methodName = methodInfo.name;
@@ -930,14 +941,27 @@ js2me.generateProgram = function (data) {
 						throw new Error(errMsg);
 					}
 					if (isStatic) {
-						result = classObj.prototype[methodName].apply(classObj.prototype, args);
+						js2me.initializeClass(classObj, function () {
+							if (methodInfo.className.indexOf('hso_fi') !== -1) {
+								console.log("invokestatic hso_fi prototype keys:", Object.keys(classObj.prototype));
+								console.log("invokestatic hso_fi prototype static values:", 
+									Object.keys(classObj.prototype).filter(k => k.startsWith('$')).reduce((obj, k) => {
+										obj[k] = classObj.prototype[k];
+										return obj;
+									}, {})
+								);
+							}
+							result = classObj.prototype[methodName].apply(classObj.prototype, args);
+							if (context.saveResult && !js2me.suspendThread) {
+								context.stack.push(result);
+							}
+						});
 					} else {
 						result = classObj.prototype[methodName].apply(obj, args);
+						if (context.saveResult && !js2me.suspendThread) {
+							context.stack.push(result);
+						}
 					}
-				}
-				
-				if (context.saveResult && !js2me.suspendThread) {
-					context.stack.push(result);
 				}
 			};
 		}  catch (e) {
@@ -1291,8 +1315,9 @@ js2me.generateProgram = function (data) {
 			function setLength(element, depth, className) {
 				className = className.substr(1);
 				if (depth + 1 == dimensions) {
+					var isPrimitive = (type.indexOf('javaRoot') === -1);
 					for (var i = 0; i < counts[depth]; i++) {
-						if (type.indexOf('L') == -1) {
+						if (isPrimitive) {
 							if (type.indexOf('J') != -1) {
 								element[i] = {hi: 0, lo: 0};
 							} else if (type.indexOf('D') != -1) {
@@ -1331,9 +1356,10 @@ js2me.generateProgram = function (data) {
 			if (!constructor) {
 				console.error('Not implemented: ' + classInfo.className);
 			}
-			js2me.initializeClass(constructor, function () {});
-			var instance = new constructor();
-			context.stack.push(instance);
+			js2me.initializeClass(constructor, function () {
+				var instance = new constructor();
+				context.stack.push(instance);
+			});
 		};
 	};
 	// newarray
@@ -1376,10 +1402,8 @@ js2me.generateProgram = function (data) {
 			var value = context.stack.pop();
 			var obj = context.stack.pop();
 			if (obj == null) {
-				if (field.className === 'javaRoot.$hso_aq') {
-					return;
-				}
-				throw new javaRoot.$java.$lang.$NullPointerException();
+				console.error("NullPointerException prevented in putfield! Skipping put. Field: " + field.className + "." + field.name);
+				return;
 			}
 			obj['$' + fieldId] = value;
 		};
@@ -1407,7 +1431,9 @@ js2me.generateProgram = function (data) {
 		var index = context.stack.pop();
 		var array = context.stack.pop();
 		if (array == null) {
-			throw new javaRoot.$java.$lang.$NullPointerException();
+			console.error("NullPointerException prevented in saload! Pushing 0 to stack.");
+			context.stack.push(0);
+			return;
 		}
 		if (index > array.length) {
 			throw new javaRoot.$java.$lang.$ArrayIndexOutOfBoundsException();
@@ -1544,6 +1570,7 @@ js2me.generateProgram = function (data) {
 	stream.reset();
 	data.content =  program;
 	data.mapping = positionMapping;
+	data.reversedMapping = reversedMapping;
 	data.require = require;
 	data.isSafe = isSafe;
 	data.parent.prototype[data.name].data = data;

@@ -8,6 +8,13 @@ js2me.loadResources = function (entries, callback) {
 	function finish() {
 		remain--;
 		if (remain == 0) {
+			// After all resources loaded, apply filename aliases
+			for (var alias in js2me.filenameMap) {
+				var target = js2me.filenameMap[alias];
+				if (js2me.resources[target] && !js2me.resources[alias]) {
+					js2me.resources[alias] = js2me.resources[target];
+				}
+			}
 			callback();
 		}
 	}
@@ -26,5 +33,8 @@ js2me.loadResources = function (entries, callback) {
 		});
 	}
 	js2me.resources = {};
+	js2me.filenameMap = {
+		'x1/interface/iconarena.png': 'x1/interface/arena_icn.png'
+	};
 	addResource(entries[i]);
 };

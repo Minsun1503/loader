@@ -6,22 +6,32 @@ js2me.createClass({
 	 * 
 	 */
 	$openRecordStore$Ljava_lang_String_Z$Ljavax_microedition_rms_RecordStore_: function (recordStoreName, createIfNecessary) {
-		var vendorName = js2me.manifest['midlet-vendor'];
-		var suiteName = js2me.manifest['midlet-name'];
-		var storageName = vendorName + '/' + suiteName + '/' + recordStoreName.text + '/';
-		if (localStorage.getItem(storageName)) {
-			return new javaRoot.$javax.$microedition.$rms.$RecordStore(storageName);
-		} else {
-			if (createIfNecessary) {
-				localStorage.setItem(storageName, '0');
-				localStorage.setItem(storageName + 'size', 0)
-				localStorage.setItem(storageName + 'lastModified', 0);
-				return new javaRoot.$javax.$microedition.$rms.$RecordStore(storageName);
+		js2me.rmsStores = js2me.rmsStores || {};
+		var name = recordStoreName != null ? recordStoreName.text : 'unknown';
+		var store = js2me.rmsStores[name];
+		
+		if (!store) {
+			var vendorName = js2me.manifest['midlet-vendor'] || 'vendor';
+			var suiteName = js2me.manifest['midlet-name'] || 'suite';
+			var storageName = vendorName + '/' + suiteName + '/' + name + '/';
+
+			if (localStorage.getItem(storageName)) {
+				store = new javaRoot.$javax.$microedition.$rms.$RecordStore(storageName);
+				js2me.rmsStores[name] = store;
 			} else {
-				throw new javaRoot.$javax.$microedition.$rms.$RecordStoreNotFoundException();
+				if (createIfNecessary) {
+					localStorage.setItem(storageName, '0');
+					localStorage.setItem(storageName + 'size', 0)
+					localStorage.setItem(storageName + 'lastModified', 0);
+					store = new javaRoot.$javax.$microedition.$rms.$RecordStore(storageName);
+					js2me.rmsStores[name] = store;
+				} else {
+					console.warn("RMS missing: " + name);
+					return null;
+				}
 			}
 		}
-		
+		return store;
 	},
 	/*
 	 * 
